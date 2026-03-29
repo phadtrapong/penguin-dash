@@ -5,8 +5,26 @@ Isometric 3D endless hopper built with Three.js + Vite + TypeScript.
 ## Build
 
 ```bash
-npm run build    # tsc && vite build → dist/
+npm install      # install dependencies
 npm run dev      # vite dev server on :5173
+npm run build    # tsc && vite build → dist/
+```
+
+## Project Structure
+
+```
+src/
+  main.ts           Entry point, creates Game instance
+  style.css         UI overlay styling (score, death screen, share button)
+  game/
+    Game.ts         Main game loop, scene, camera, update cycle
+    constants.ts    Tuning params (speeds, colors, zone thresholds)
+    types.ts        TypeScript interfaces (Row, GameData, FloeData, etc.)
+    meshes.ts       Voxel mesh builders (penguin, seal, tree, rock, fish, tiles)
+    world.ts        Procedural world gen, collision detection, moving objects
+    input.ts        Keyboard (WASD/arrows/space) and touch (swipe/tap/long-press)
+    audio.ts        Procedural Web Audio API SFX (no audio files)
+    ui.ts           Score, high score (localStorage), death screen, share (Web Share API)
 ```
 
 ## Deploy Configuration (configured by /setup-deploy)
