@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Penguin Dash</title>
+    <meta name="description" content="Hop across arctic ice floes, dodge seals, and belly-slide your way to a high score!" />
+    <meta property="og:title" content="Penguin Dash" />
+    <meta property="og:description" content="Can you beat my score? An arctic endless hopper." />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui">
+      <div id="score">0</div>
+      <div id="high-score"></div>
+      <div id="start-screen">
+        <h1>Penguin Dash</h1>
+        <p>Tap or press any key to start</p>
+        <p class="controls-hint">Arrow keys / Swipe to move<br>Space / Long-press to belly-slide</p>
+      </div>
+      <div id="death-screen" class="hidden">
+        <h2>Game Over</h2>
+        <p id="final-score"></p>
+        <p id="new-high-score" class="hidden">New High Score!</p>
+        <p>Tap or press any key to retry</p>
+        <button id="share-btn">Share Score</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

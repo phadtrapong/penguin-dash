@@ -1,0 +1,137 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  background: #1a1a2e;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#ui {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#score {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 48px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  z-index: 10;
+}
+
+#high-score {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+}
+
+#start-screen, #death-screen {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #fff;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  padding: 32px 48px;
+  border-radius: 16px;
+}
+
+#death-screen {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+#start-screen {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+}
+
+#start-screen h1 {
+  font-size: 56px;
+  font-weight: 900;
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+
+#start-screen p {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.controls-hint {
+  font-size: 14px !important;
+  opacity: 0.7;
+  margin-top: 12px !important;
+}
+
+#death-screen h2 {
+  font-size: 40px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+#death-screen p {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+#new-high-score {
+  color: #FFD700;
+  font-weight: 900;
+  font-size: 24px !important;
+  animation: pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.1); }
+}
+
+#share-btn {
+  pointer-events: auto;
+  margin-top: 16px;
+  padding: 12px 32px;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  border-radius: 50px;
+  background: #FFD700;
+  color: #333;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+#share-btn:active {
+  transform: scale(0.95);
+}
+
+.hidden {
+  display: none !important;
+}
