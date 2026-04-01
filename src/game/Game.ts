@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import type { GameData } from './types';
 import {
   TILE_SIZE, LANE_OFFSET, ROWS_VISIBLE_AHEAD, ROWS_VISIBLE_BEHIND,
-  HOP_DURATION, HOP_HEIGHT, SLIDE_SPEED, SLIDE_STEER_FACTOR,
+  HOP_DURATION, HOP_HEIGHT, SLIDE_SPEED,
   SPEED_INCREASE_INTERVAL, BASE_SPEED_INCREASE,
-  NEAR_MISS_DISTANCE, NEAR_MISS_SLOWMO_SCALE, NEAR_MISS_DURATION,
+  NEAR_MISS_DISTANCE, NEAR_MISS_MIN_DISTANCE, NEAR_MISS_SLOWMO_SCALE, NEAR_MISS_DURATION,
+  FISH_COLLECT_RADIUS, EDGE_DEATH_OFFSET, REWARDED_AD_FISH,
   COLORS,
 } from './constants';
 import { createPenguin } from './meshes';
@@ -16,6 +17,8 @@ import { setupInput } from './input';
 import type { InputAction } from './input';
 import * as audio from './audio';
 import * as ui from './ui';
+import * as progress from './progress';
+import * as portal from './portal';
 
 export class Game {
   private scene: THREE.Scene;
@@ -26,24 +29,24 @@ export class Game {
   private clock = new THREE.Clock();
   private cleanupInput: (() => void) | null = null;
   private screenShake = 0;
-  private fishMeshes: THREE.Group[] = [];
+  private fishMeshes: THREE.Object3D[] = [];
+  private gameStartTime = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     // Renderer - crisp, full resolution
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(window.devicePixelRatio); // Full device resolution
+    this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(COLORS.sky);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Camera - zoomed in closer for chunky voxel feel
     const aspect = window.innerWidth / window.innerHeight;
-    const frustum = 5; // Was 8 - closer = bigger objects
+    const frustum = 5;
     this.camera = new THREE.OrthographicCamera(
       -frustum * aspect, frustum * aspect,
       frustum, -frustum,
       0.1, 100
     );
-    // Classic isometric angle (30 degrees)
     this.camera.position.set(7, 9, 7);
     this.camera.lookAt(0, 0, 0);
 
@@ -51,19 +54,19 @@ export class Game {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(COLORS.sky, 15, 28);
 
-    // Lighting - richer, more directional for voxel depth
+    // Lighting
     const hemi = new THREE.HemisphereLight(0xB5E3F5, 0x8FAABC, 0.6);
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xFFF5E0, 1.2); // Warm sunlight
+    const sun = new THREE.DirectionalLight(0xFFF5E0, 1.2);
     sun.position.set(5, 12, 4);
     this.scene.add(sun);
-    // Fill light from opposite side for softer shadows
-    const fill = new THREE.DirectionalLight(0xC5D8F0, 0.3); // Cool blue fill
+    const fill = new THREE.DirectionalLight(0xC5D8F0, 0.3);
     fill.position.set(-3, 6, -3);
     this.scene.add(fill);
 
-    // Penguin
-    this.penguin = createPenguin();
+    // Penguin — use selected skin
+    const skin = progress.getSelectedSkin();
+    this.penguin = createPenguin(skin);
     this.scene.add(this.penguin);
 
     // Game data
@@ -76,10 +79,29 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     this.resize();
 
+    // Parse challenge URL
+    const params = new URLSearchParams(window.location.search);
+    const challengeParam = params.get('challenge');
+    if (challengeParam) {
+      const val = parseInt(challengeParam, 10);
+      if (Number.isFinite(val) && val > 0) {
+        this.data.challengeScore = val;
+      }
+    }
+
     // UI
     ui.setupShareButton();
-    ui.showStartScreen();
-    ui.showHighScore(ui.getHighScore());
+    ui.setupSkinsButton(() => this.toggleSkinScreen());
+    ui.setupPauseButton(() => this.togglePause());
+    ui.setupSkinSelection((skinId: number) => this.selectSkin(skinId));
+    ui.setupRewardedAdButton(() => this.watchRewardedAd());
+    ui.showStartScreen(this.data.challengeScore);
+    ui.showHighScore(progress.getHighScore());
+    ui.updateFishDisplay(progress.getLifetimeFish());
+
+    // Portal init
+    portal.init();
+    portal.gameLoadingFinished();
 
     // Generate world for start screen backdrop
     this.generateInitialRows();
@@ -90,7 +112,7 @@ export class Game {
     return {
       state: 'start',
       score: 0,
-      highScore: ui.getHighScore(),
+      highScore: progress.getHighScore(),
       playerRow: 0,
       playerLane: 0,
       targetRow: 0,
@@ -105,6 +127,11 @@ export class Game {
       rows: new Map(),
       speedMultiplier: 1,
       deathTime: 0,
+      fishCollected: 0,
+      isPaused: false,
+      showSkinScreen: false,
+      challengeScore: this.data?.challengeScore ?? null,
+      deathCount: this.data?.deathCount ?? 0,
     };
   }
 
@@ -125,13 +152,27 @@ export class Game {
   private handleInput(action: InputAction) {
     const d = this.data;
 
+    // Skin screen is up — only Escape closes it
+    if (d.showSkinScreen) {
+      return; // Skin screen handles its own input via DOM
+    }
+
+    // Pause toggle
+    if (d.state === 'playing' && action === 'pause') {
+      this.togglePause();
+      return;
+    }
+
+    // While paused, only unpause
+    if (d.isPaused) return;
+
     if (d.state === 'start' && (action === 'any' || action === 'forward')) {
       this.startGame();
       return;
     }
 
     if (d.state === 'dead' && (action === 'any' || action === 'forward')) {
-      if (Date.now() - d.deathTime < 500) return; // Cooldown before restart
+      if (Date.now() - d.deathTime < 500) return;
       this.restartGame();
       return;
     }
@@ -144,7 +185,6 @@ export class Game {
       d.isSliding = true;
       d.slideRow = d.playerRow;
       audio.playSlide();
-      // Tilt penguin forward for belly-slide
       this.penguin.rotation.x = -Math.PI / 6;
       return;
     }
@@ -155,10 +195,9 @@ export class Game {
       return;
     }
 
-    if (d.isHopping) return; // Can't input during hop
+    if (d.isHopping) return;
 
     if (d.isSliding) {
-      // During slide, left/right steer with reduced control
       if (action === 'left') {
         d.playerLane = Math.max(-LANE_OFFSET, d.playerLane - 1);
         d.targetLane = d.playerLane;
@@ -196,17 +235,21 @@ export class Game {
 
   private startGame() {
     audio.resumeAudio();
-    // Clear old scene objects (keep lights, penguin)
     this.clearWorld();
     this.data = this.freshData();
     this.data.state = 'playing';
+    this.gameStartTime = Date.now();
     this.generateInitialRows();
     this.updatePenguinPosition();
     ui.showPlaying();
     ui.updateScore(0);
+    ui.updateFishCount(0);
+    portal.gameplayStart();
   }
 
-  private restartGame() {
+  private async restartGame() {
+    // Show ad on retry (portal handles skip logic)
+    await portal.commercialBreak();
     this.startGame();
   }
 
@@ -238,15 +281,95 @@ export class Game {
     const row = generateRow(rowIndex);
     this.data.rows.set(rowIndex, row);
     buildRowMeshes(row, this.scene);
+    // Track fish meshes for animation
+    if (row.fish?.mesh) {
+      this.fishMeshes.push(row.fish.mesh);
+    }
   }
 
   private die() {
-    this.data.state = 'dead';
-    this.data.deathTime = Date.now();
+    const d = this.data;
+    d.state = 'dead';
+    d.deathTime = Date.now();
+    d.deathCount++;
     audio.playDeath();
-    ui.showDeath(this.data.score);
-    // Death animation: penguin jumps and falls
+    portal.gameplayStop();
+
+    // Persist fish and check unlocks
+    const lifetimeFish = d.fishCollected > 0 ? progress.addFish(d.fishCollected) : progress.getLifetimeFish();
+    const newSkin = d.fishCollected > 0 ? progress.checkUnlocks(lifetimeFish) : null;
+    const nextUnlock = progress.getNextUnlock(lifetimeFish);
+
+    // Save high score
+    progress.saveHighScore(d.score);
+    const isNewHighScore = d.score >= d.highScore && d.score > 0;
+
+    // Record session
+    const duration = (Date.now() - this.gameStartTime) / 1000;
+    progress.recordSession(d.score, duration);
+
+    // Show death screen
+    ui.showDeath(d.score, {
+      fishCollected: d.fishCollected,
+      lifetimeFish,
+      newSkin,
+      nextUnlock,
+      isNewHighScore,
+      challengeScore: d.challengeScore,
+      canShowRewardedAd: portal.canShowRewardedAd(),
+    });
+
+    // Death animation
     this.penguin.rotation.x = Math.PI / 4;
+
+    // Portal happy time on high score
+    if (isNewHighScore && d.score > 10) {
+      portal.happyTime(Math.min(1, d.score / 100));
+    }
+  }
+
+  private togglePause() {
+    const d = this.data;
+    if (d.state !== 'playing' && !d.isPaused) return;
+    d.isPaused = !d.isPaused;
+    if (d.isPaused) {
+      portal.gameplayStop();
+      ui.showPause();
+    } else {
+      portal.gameplayStart();
+      ui.hidePause();
+    }
+  }
+
+  private toggleSkinScreen() {
+    const d = this.data;
+    d.showSkinScreen = !d.showSkinScreen;
+    if (d.showSkinScreen) {
+      ui.showSkinScreen(progress.getUnlockedSkinIds(), progress.getSelectedSkin().id, progress.getLifetimeFish());
+    } else {
+      ui.hideSkinScreen();
+    }
+  }
+
+  private selectSkin(skinId: number) {
+    if (progress.setSelectedSkin(skinId)) {
+      // Recreate penguin with new skin
+      const skin = progress.getSelectedSkin();
+      this.scene.remove(this.penguin);
+      this.penguin = createPenguin(skin);
+      this.scene.add(this.penguin);
+      this.updatePenguinPosition();
+    }
+  }
+
+  private async watchRewardedAd() {
+    const watched = await portal.rewardedBreak();
+    if (watched) {
+      const lifetimeFish = progress.addFish(REWARDED_AD_FISH);
+      progress.checkUnlocks(lifetimeFish);
+      ui.updateFishDisplay(lifetimeFish);
+      ui.showRewardedAdResult(REWARDED_AD_FISH);
+    }
   }
 
   update() {
@@ -254,7 +377,7 @@ export class Game {
     const d = this.data;
     const dt = rawDt * d.timeScale;
 
-    if (d.state !== 'playing') {
+    if (d.state !== 'playing' || d.isPaused) {
       // Gentle idle bob on start screen
       if (d.state === 'start') {
         this.penguin.position.y = 0.15 + Math.sin(Date.now() * 0.003) * 0.05;
@@ -277,8 +400,6 @@ export class Game {
         d.isHopping = false;
         d.playerRow = d.targetRow;
         d.playerLane = d.targetLane;
-
-        // Check landing
         this.checkLanding();
       }
     }
@@ -289,7 +410,6 @@ export class Game {
       d.playerRow = Math.floor(d.slideRow);
       d.targetRow = d.playerRow;
 
-      // Check collisions while sliding
       const currentRow = d.rows.get(d.playerRow);
       if (currentRow) {
         if (currentRow.zone === 'river' && !isOnFloe(currentRow, d.playerLane)) {
@@ -312,8 +432,7 @@ export class Game {
         if (floe) {
           d.playerLane += floe.speed * d.speedMultiplier * dt;
           d.targetLane = d.playerLane;
-          // Fall off edges
-          if (Math.abs(d.playerLane) > LANE_OFFSET + 2) {
+          if (Math.abs(d.playerLane) > LANE_OFFSET + EDGE_DEATH_OFFSET) {
             audio.playSplash();
             this.die();
             return;
@@ -324,7 +443,7 @@ export class Game {
 
     // Near-miss detection
     if (d.nearMissTimer > 0) {
-      d.nearMissTimer -= rawDt; // Use raw dt for real-time countdown
+      d.nearMissTimer -= rawDt;
       if (d.nearMissTimer <= 0) {
         d.timeScale = 1;
         d.nearMissTimer = 0;
@@ -334,7 +453,7 @@ export class Game {
     const currentRow = d.rows.get(d.playerRow);
     if (currentRow) {
       const sealDist = nearestSealDistance(currentRow, d.playerLane);
-      if (sealDist < NEAR_MISS_DISTANCE && sealDist > 0.5 && d.nearMissTimer <= 0) {
+      if (sealDist < NEAR_MISS_DISTANCE && sealDist > NEAR_MISS_MIN_DISTANCE && d.nearMissTimer <= 0) {
         d.timeScale = NEAR_MISS_SLOWMO_SCALE;
         d.nearMissTimer = NEAR_MISS_DURATION;
         this.screenShake = 0.3;
@@ -349,17 +468,19 @@ export class Game {
       ui.updateScore(d.score);
     }
 
-    // Fish collection
+    // Fish collection — use direct mesh ref instead of scene traversal
     if (currentRow?.fish && !currentRow.fish.collected) {
-      if (Math.abs(currentRow.fish.lane - d.playerLane) < 0.8) {
+      if (Math.abs(currentRow.fish.lane - d.playerLane) < FISH_COLLECT_RADIUS) {
         currentRow.fish.collected = true;
+        d.fishCollected++;
         audio.playFishCollect();
-        // Remove fish mesh
-        this.scene.traverse((obj) => {
-          if (obj.userData.isFish && obj.userData.row === d.playerRow) {
-            this.scene.remove(obj);
-          }
-        });
+        ui.updateFishCount(d.fishCollected);
+        // Remove fish mesh by direct reference
+        if (currentRow.fish.mesh) {
+          this.scene.remove(currentRow.fish.mesh);
+          const idx = this.fishMeshes.indexOf(currentRow.fish.mesh);
+          if (idx !== -1) this.fishMeshes.splice(idx, 1);
+        }
       }
     }
 
@@ -367,14 +488,17 @@ export class Game {
     for (let r = d.playerRow - ROWS_VISIBLE_BEHIND; r < d.playerRow + ROWS_VISIBLE_AHEAD; r++) {
       this.ensureRow(r);
     }
-    // Remove rows too far behind
     for (const [rowIndex, row] of d.rows) {
       if (rowIndex < d.playerRow - ROWS_VISIBLE_BEHIND - 5) {
-        // Remove all meshes from scene
         if (row.groundMeshes) for (const m of row.groundMeshes) this.scene.remove(m);
         if (row.floes) for (const f of row.floes) if (f.mesh) this.scene.remove(f.mesh);
         if (row.seals) for (const s of row.seals) if (s.mesh) this.scene.remove(s.mesh);
         if (row.decorations) for (const dec of row.decorations) if (dec.mesh) this.scene.remove(dec.mesh);
+        // Clean up fish mesh ref from tracking array
+        if (row.fish?.mesh) {
+          const idx = this.fishMeshes.indexOf(row.fish.mesh);
+          if (idx !== -1) this.fishMeshes.splice(idx, 1);
+        }
         d.rows.delete(rowIndex);
       }
     }
@@ -382,16 +506,14 @@ export class Game {
     // Update penguin visual position
     this.updatePenguinPosition();
 
-    // Update camera to follow penguin
+    // Update camera
     this.updateCamera();
 
-    // Animate fish spinning
-    this.scene.traverse((obj) => {
-      if (obj.userData.isFish) {
-        obj.rotation.y += dt * 3;
-        obj.position.y = TILE_SIZE * 0.4 + Math.sin(Date.now() * 0.005) * 0.1;
-      }
-    });
+    // Animate fish spinning — use tracked array instead of scene traversal
+    for (const mesh of this.fishMeshes) {
+      mesh.rotation.y += dt * 3;
+      mesh.position.y = TILE_SIZE * 0.4 + Math.sin(Date.now() * 0.005) * 0.1;
+    }
 
     // Screen shake
     if (this.screenShake > 0) {
@@ -406,7 +528,6 @@ export class Game {
     const row = d.rows.get(d.playerRow);
     if (!row) return;
 
-    // River: must be on a floe
     if (row.zone === 'river') {
       if (!isOnFloe(row, d.playerLane)) {
         audio.playSplash();
@@ -415,7 +536,6 @@ export class Game {
       }
     }
 
-    // Seal collision
     if (checkSealCollision(row, d.playerLane)) {
       this.die();
       return;
@@ -430,13 +550,12 @@ export class Game {
       const t = d.hopProgress;
       row = d.playerRow + (d.targetRow - d.playerRow) * t;
       lane = d.playerLane + (d.targetLane - d.playerLane) * t;
-      // Parabolic hop height
       const hopY = HOP_HEIGHT * 4 * t * (1 - t);
       this.penguin.position.y = 0.15 + hopY;
     } else if (d.isSliding) {
       row = d.slideRow;
       lane = d.playerLane;
-      this.penguin.position.y = 0.08; // Lower during slide
+      this.penguin.position.y = 0.08;
     } else {
       row = d.playerRow;
       lane = d.playerLane;
@@ -446,7 +565,6 @@ export class Game {
     this.penguin.position.x = lane * TILE_SIZE;
     this.penguin.position.z = -row * TILE_SIZE;
 
-    // Face forward
     if (!d.isSliding) {
       this.penguin.rotation.x = 0;
     }
@@ -471,7 +589,6 @@ export class Game {
     const targetX = d.playerLane * TILE_SIZE;
     const targetZ = -d.playerRow * TILE_SIZE;
 
-    // Smooth camera follow
     const camOffsetX = 7;
     const camOffsetY = 9;
     const camOffsetZ = 7;
@@ -480,17 +597,9 @@ export class Game {
     this.camera.position.z += (targetZ + camOffsetZ - this.camera.position.z) * 0.1;
     this.camera.position.y = camOffsetY;
 
-    const lookTarget = new THREE.Vector3(
-      targetX,
-      0,
-      targetZ
-    );
-    // Smoothly interpolate lookAt
-    const currentLook = new THREE.Vector3();
-    this.camera.getWorldDirection(currentLook);
+    const lookTarget = new THREE.Vector3(targetX, 0, targetZ);
     this.camera.lookAt(lookTarget);
 
-    // Screen shake
     if (this.screenShake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.screenShake * 0.3;
       this.camera.position.y += (Math.random() - 0.5) * this.screenShake * 0.2;

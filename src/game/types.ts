@@ -12,7 +12,7 @@ export interface Row {
   /** Static decorations (trees, rocks) on snow rows */
   decorations?: DecorationData[];
   /** Does this row have a fish collectible? */
-  fish?: { lane: number; collected: boolean };
+  fish?: { lane: number; collected: boolean; mesh?: THREE.Object3D };
   /** All meshes for this row (for cleanup) */
   groundMeshes?: THREE.Object3D[];
 }
@@ -64,4 +64,14 @@ export interface GameData {
   speedMultiplier: number;
   /** Timestamp when player died (for restart cooldown) */
   deathTime: number;
+  /** Fish collected this run */
+  fishCollected: number;
+  /** Pause state (orthogonal to GameState) */
+  isPaused: boolean;
+  /** Skin selection overlay visible (orthogonal to GameState) */
+  showSkinScreen: boolean;
+  /** Challenge score from URL param (null if no challenge) */
+  challengeScore: number | null;
+  /** Death count this session (for ad skip logic) */
+  deathCount: number;
 }

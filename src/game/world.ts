@@ -3,8 +3,10 @@ import type { Row, ZoneType, FloeData, SealData, DecorationData } from './types'
 import {
   LANE_COUNT, LANE_OFFSET, TILE_SIZE,
   ZONE_SNOW_ONLY_UNTIL, ZONE_RIVER_START, ZONE_SEAL_START,
-  SEAL_MIN_SPEED, SEAL_MAX_SPEED,
+  SEAL_MIN_SPEED, SEAL_MAX_SPEED, SEAL_DENSITY_INCREASE_INTERVAL,
   FLOE_MIN_SPEED, FLOE_MAX_SPEED,
+  FLOE_TOLERANCE, SEAL_COLLISION_RADIUS,
+  FISH_SPAWN_CHANCE, FISH_MIN_ROW,
 } from './constants';
 import {
   createSnowTile, createWaterTile, createIceFloe,
@@ -46,7 +48,7 @@ function generateFloes(): FloeData[] {
 
 function generateSeals(rowIndex: number): SealData[] {
   const seals: SealData[] = [];
-  const count = 1 + Math.floor(rowIndex / SEAL_MIN_SPEED / 100);
+  const count = 1 + Math.floor(rowIndex / SEAL_DENSITY_INCREASE_INTERVAL);
   const dir = Math.random() > 0.5 ? 1 : -1;
 
   for (let i = 0; i < Math.min(count, 3); i++) {
@@ -87,8 +89,8 @@ export function generateRow(rowIndex: number): Row {
     row.decorations = generateDecorations();
   }
 
-  // Fish collectible (10% chance on non-starting rows)
-  if (rowIndex > 5 && Math.random() < 0.1) {
+  // Fish collectible
+  if (rowIndex > FISH_MIN_ROW && Math.random() < FISH_SPAWN_CHANCE) {
     row.fish = {
       lane: Math.floor(Math.random() * LANE_COUNT) - LANE_OFFSET,
       collected: false,
@@ -166,8 +168,7 @@ export function buildRowMeshes(row: Row, scene: THREE.Scene): void {
       0,
       -rowZ * TILE_SIZE
     );
-    mesh.userData.isFish = true;
-    mesh.userData.row = rowZ;
+    row.fish.mesh = mesh;
     ground.push(mesh);
     scene.add(mesh);
   }
@@ -215,7 +216,7 @@ export function updateMovingObjects(
 export function isOnFloe(row: Row, lane: number): boolean {
   if (!row.floes) return false;
   for (const floe of row.floes) {
-    if (lane >= floe.lane - 0.3 && lane < floe.lane + floe.width + 0.3) {
+    if (lane >= floe.lane - FLOE_TOLERANCE && lane < floe.lane + floe.width + FLOE_TOLERANCE) {
       return true;
     }
   }
@@ -226,7 +227,7 @@ export function isOnFloe(row: Row, lane: number): boolean {
 export function getFloeAt(row: Row, lane: number): FloeData | null {
   if (!row.floes) return null;
   for (const floe of row.floes) {
-    if (lane >= floe.lane - 0.3 && lane < floe.lane + floe.width + 0.3) {
+    if (lane >= floe.lane - FLOE_TOLERANCE && lane < floe.lane + floe.width + FLOE_TOLERANCE) {
       return floe;
     }
   }
@@ -237,7 +238,7 @@ export function getFloeAt(row: Row, lane: number): FloeData | null {
 export function checkSealCollision(row: Row, lane: number): boolean {
   if (!row.seals) return false;
   for (const seal of row.seals) {
-    if (Math.abs(seal.lane - lane) < 0.7) {
+    if (Math.abs(seal.lane - lane) < SEAL_COLLISION_RADIUS) {
       return true;
     }
   }
@@ -249,7 +250,7 @@ export function nearestSealDistance(row: Row, lane: number): number {
   if (!row.seals) return Infinity;
   let min = Infinity;
   for (const seal of row.seals) {
-    const d = Math.sqrt((seal.lane - lane) ** 2);
+    const d = Math.abs(seal.lane - lane);
     if (d < min) min = d;
   }
   return min;

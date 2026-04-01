@@ -14,18 +14,44 @@
     <div id="ui">
       <div id="score">0</div>
       <div id="high-score"></div>
+      <div id="fish-count" class="hidden"></div>
+      <div id="lifetime-fish"></div>
+      <div id="challenge-banner" class="hidden"></div>
+      <button id="pause-btn" class="hidden" aria-label="Pause">&#10074;&#10074;</button>
+
       <div id="start-screen">
         <h1>Penguin Dash</h1>
         <p>Tap or press any key to start</p>
         <p class="controls-hint">Arrow keys / Swipe to move<br>Space / Long-press to belly-slide</p>
+        <button id="skins-btn">Skins</button>
       </div>
+
       <div id="death-screen" class="hidden">
         <h2>Game Over</h2>
         <p id="final-score"></p>
         <p id="new-high-score" class="hidden">New High Score!</p>
+        <p id="death-fish" class="hidden"></p>
+        <p id="death-progress" class="hidden"></p>
+        <p id="death-challenge" class="hidden"></p>
         <p>Tap or press any key to retry</p>
-        <button id="share-btn">Share Score</button>
+        <button id="rewarded-ad-btn" class="hidden">Watch Ad for Fish</button>
+        <button id="share-btn">Challenge Friend</button>
       </div>
+
+      <div id="skin-screen" class="hidden">
+        <div class="skin-screen-inner">
+          <h2>Skins</h2>
+          <div id="skin-grid"></div>
+          <button id="skin-close-btn">Close</button>
+        </div>
+      </div>
+
+      <div id="pause-screen" class="hidden">
+        <h2>Paused</h2>
+        <p>Tap or press P to resume</p>
+      </div>
+
+      <div id="unlock-celebration" class="hidden"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

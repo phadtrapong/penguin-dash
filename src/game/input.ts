@@ -1,4 +1,4 @@
-export type InputAction = 'forward' | 'left' | 'right' | 'slide_start' | 'slide_end' | 'any';
+export type InputAction = 'forward' | 'left' | 'right' | 'slide_start' | 'slide_end' | 'pause' | 'any';
 
 type InputCallback = (action: InputAction) => void;
 
@@ -14,6 +14,8 @@ export function setupInput(callback: InputCallback): () => void {
         callback('right'); break;
       case 'Space':
         callback('slide_start'); break;
+      case 'KeyP': case 'Escape':
+        callback('pause'); break;
       default:
         callback('any'); break;
     }

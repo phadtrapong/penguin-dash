@@ -30,10 +30,47 @@ export const SEAL_MAX_SPEED = 5;
 export const FLOE_MIN_SPEED = 1;
 export const FLOE_MAX_SPEED = 3;
 
+// Collision
+export const FISH_COLLECT_RADIUS = 0.8;
+export const SEAL_COLLISION_RADIUS = 0.7;
+export const FLOE_TOLERANCE = 0.3;
+export const EDGE_DEATH_OFFSET = 2;
+
 // Near-miss
 export const NEAR_MISS_DISTANCE = 0.5; // tiles
+export const NEAR_MISS_MIN_DISTANCE = 0.5; // below this = hit, above = miss
 export const NEAR_MISS_SLOWMO_SCALE = 0.3;
 export const NEAR_MISS_DURATION = 0.5; // seconds (real time)
+
+// Fish
+export const FISH_SPAWN_CHANCE = 0.1; // 10% chance per row
+export const FISH_MIN_ROW = 5; // no fish in first 5 rows
+
+// Portal ads
+export const COMMERCIAL_BREAK_INTERVAL = 3; // skip ad every Nth death
+export const REWARDED_AD_SESSION_CAP = 3;
+export const REWARDED_AD_FISH = 5; // fish granted per rewarded ad
+
+// Skins
+export interface SkinDefinition {
+  id: number;
+  name: string;
+  body: number;
+  belly: number;
+  beak: number;
+  cost: number; // lifetime fish to unlock (0 = free)
+}
+
+export const SKINS: SkinDefinition[] = [
+  { id: 0, name: 'Classic Penguin',  body: 0x1C1C2E, belly: 0xFDFDFD, beak: 0xFF6B00, cost: 0 },
+  { id: 1, name: 'Golden Penguin',   body: 0xFFD700, belly: 0xFFF8DC, beak: 0xFF8C00, cost: 10 },
+  { id: 2, name: 'Ghost Penguin',    body: 0xDDDDDD, belly: 0xFFFFFF, beak: 0xCCCCCC, cost: 25 },
+  { id: 3, name: 'Lava Penguin',     body: 0xFF6D00, belly: 0xFF8A65, beak: 0xFFD700, cost: 50 },
+  { id: 4, name: 'Arctic Blue',      body: 0x1E88E5, belly: 0xB3E5FC, beak: 0xFFFFFF, cost: 100 },
+  { id: 5, name: 'Sunset Penguin',   body: 0xFF6F00, belly: 0xFFCC80, beak: 0xE53935, cost: 200 },
+  { id: 6, name: 'Forest Penguin',   body: 0x00897B, belly: 0xA5D6A7, beak: 0x8D6E63, cost: 400 },
+  { id: 7, name: 'Diamond Penguin',  body: 0xE0E0E0, belly: 0xFFFFFF, beak: 0xB0BEC5, cost: 800 },
+];
 
 // Colors - vibrant, high contrast arctic palette
 export const COLORS = {

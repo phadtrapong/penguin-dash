@@ -1,22 +1,34 @@
 import * as THREE from 'three';
 import { COLORS, TILE_SIZE } from './constants';
+import type { SkinDefinition } from './constants';
 
-// Use MeshToonMaterial for crisp, cel-shaded voxel look
-const _mat = (color: number) => new THREE.MeshLambertMaterial({ color });
-// Flat shading for that chunky voxel aesthetic
+// Material cache for world objects — shared across all meshes of the same color
+const materialCache = new Map<number, THREE.MeshStandardMaterial>();
+
 const _flatMat = (color: number) => {
-  const m = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0 });
-  return m;
+  let mat = materialCache.get(color);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0 });
+    materialCache.set(color, mat);
+  }
+  return mat;
 };
 
-export function createPenguin(): THREE.Group {
+// Fresh material for penguin parts — NOT cached (skin colors change per player)
+const _penguinMat = (color: number) =>
+  new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, metalness: 0 });
+
+export function createPenguin(skin?: SkinDefinition): THREE.Group {
   const g = new THREE.Group();
   const s = TILE_SIZE * 0.5; // Bigger penguin!
+  const bodyColor = skin?.body ?? COLORS.penguin;
+  const bellyColor = skin?.belly ?? COLORS.penguinBelly;
+  const beakColor = skin?.beak ?? COLORS.penguinBeak;
 
   // Body
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(s * 1.0, s * 1.4, s * 0.85),
-    _flatMat(COLORS.penguin)
+    _penguinMat(bodyColor)
   );
   body.position.y = s * 0.75;
   g.add(body);
@@ -24,7 +36,7 @@ export function createPenguin(): THREE.Group {
   // Belly (white front) - slightly protruding
   const belly = new THREE.Mesh(
     new THREE.BoxGeometry(s * 0.7, s * 1.1, s * 0.15),
-    _flatMat(COLORS.penguinBelly)
+    _penguinMat(bellyColor)
   );
   belly.position.set(0, s * 0.7, s * 0.42);
   g.add(belly);
@@ -32,7 +44,7 @@ export function createPenguin(): THREE.Group {
   // Head - rounder feel with slightly larger proportions
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(s * 0.9, s * 0.75, s * 0.8),
-    _flatMat(COLORS.penguin)
+    _penguinMat(bodyColor)
   );
   head.position.y = s * 1.7;
   g.add(head);
@@ -67,7 +79,7 @@ export function createPenguin(): THREE.Group {
   for (const side of [-1, 1]) {
     const cheek = new THREE.Mesh(
       new THREE.BoxGeometry(s * 0.12, s * 0.2, s * 0.1),
-      _flatMat(COLORS.penguinCheek)
+      _penguinMat(COLORS.penguinCheek)
     );
     cheek.position.set(side * s * 0.35, s * 1.65, s * 0.32);
     g.add(cheek);
@@ -76,7 +88,7 @@ export function createPenguin(): THREE.Group {
   // Beak
   const beak = new THREE.Mesh(
     new THREE.BoxGeometry(s * 0.25, s * 0.15, s * 0.3),
-    _flatMat(COLORS.penguinBeak)
+    _penguinMat(beakColor)
   );
   beak.position.set(0, s * 1.65, s * 0.5);
   g.add(beak);
@@ -85,7 +97,7 @@ export function createPenguin(): THREE.Group {
   for (const side of [-1, 1]) {
     const foot = new THREE.Mesh(
       new THREE.BoxGeometry(s * 0.35, s * 0.08, s * 0.45),
-      _flatMat(COLORS.penguinFeet)
+      _penguinMat(beakColor)
     );
     foot.position.set(side * s * 0.3, s * 0.04, s * 0.1);
     g.add(foot);
@@ -95,7 +107,7 @@ export function createPenguin(): THREE.Group {
   for (const side of [-1, 1]) {
     const wing = new THREE.Mesh(
       new THREE.BoxGeometry(s * 0.15, s * 0.9, s * 0.5),
-      _flatMat(COLORS.penguin)
+      _penguinMat(bodyColor)
     );
     wing.position.set(side * s * 0.58, s * 0.8, 0);
     wing.name = side === -1 ? 'wingL' : 'wingR';
