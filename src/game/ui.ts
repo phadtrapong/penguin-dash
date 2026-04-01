@@ -22,6 +22,7 @@ const deathProgressEl = document.getElementById('death-progress')!;
 const deathChallengeEl = document.getElementById('death-challenge')!;
 const unlockCelebration = document.getElementById('unlock-celebration')!;
 const rewardedAdBtn = document.getElementById('rewarded-ad-btn')! as HTMLButtonElement;
+const deathSkinsBtn = document.getElementById('death-skins-btn')!;
 const lifetimeFishEl = document.getElementById('lifetime-fish')!;
 
 // --- Score display ---
@@ -138,18 +139,27 @@ export function showDeath(score: number, info: DeathInfo) {
 }
 
 function showUnlockCelebration(skin: SkinDefinition) {
+  // Hide death screen content while celebration plays
+  deathScreen.style.opacity = '0';
+
   unlockCelebration.innerHTML = `
+    <div class="unlock-backdrop"></div>
     <div class="unlock-flash"></div>
     <div class="unlock-content">
+      <div class="unlock-emoji">🎉</div>
       <div class="unlock-label">NEW SKIN UNLOCKED!</div>
       <div class="unlock-name">${skin.name}</div>
       <div class="unlock-swatch" style="background: #${skin.body.toString(16).padStart(6, '0')}"></div>
+      <div class="unlock-hint">Keep collecting fish for more skins!</div>
     </div>
   `;
   unlockCelebration.classList.remove('hidden');
+
+  // Fade in death screen after celebration
   setTimeout(() => {
     unlockCelebration.classList.add('hidden');
-  }, 3000);
+    deathScreen.style.opacity = '1';
+  }, 2500);
 }
 
 export function showRewardedAdResult(fishCount: number) {
@@ -224,6 +234,10 @@ export function setupSkinSelection(onSelect: (skinId: number) => void) {
 
 export function setupSkinsButton(onToggle: () => void) {
   skinsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onToggle();
+  });
+  deathSkinsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     onToggle();
   });

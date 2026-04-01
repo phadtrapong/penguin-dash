@@ -208,24 +208,27 @@ export class Game {
       return;
     }
 
+    // Snap lane to nearest integer before hopping (fixes misalignment after riding floes)
+    const snappedLane = Math.round(d.playerLane);
+
     switch (action) {
       case 'forward':
         d.targetRow = d.playerRow + 1;
-        d.targetLane = d.playerLane;
+        d.targetLane = snappedLane;
         d.isHopping = true;
         d.hopProgress = 0;
         audio.playHop();
         break;
       case 'left':
         d.targetRow = d.playerRow;
-        d.targetLane = Math.max(-LANE_OFFSET, d.playerLane - 1);
+        d.targetLane = Math.max(-LANE_OFFSET, snappedLane - 1);
         d.isHopping = true;
         d.hopProgress = 0;
         audio.playHop();
         break;
       case 'right':
         d.targetRow = d.playerRow;
-        d.targetLane = Math.min(LANE_OFFSET, d.playerLane + 1);
+        d.targetLane = Math.min(LANE_OFFSET, snappedLane + 1);
         d.isHopping = true;
         d.hopProgress = 0;
         audio.playHop();
@@ -447,6 +450,15 @@ export class Game {
       if (d.nearMissTimer <= 0) {
         d.timeScale = 1;
         d.nearMissTimer = 0;
+      }
+    }
+
+    // Continuous seal collision check (seals move into the penguin)
+    if (!d.isHopping) {
+      const currentRow = d.rows.get(d.playerRow);
+      if (currentRow && checkSealCollision(currentRow, d.playerLane)) {
+        this.die();
+        return;
       }
     }
 

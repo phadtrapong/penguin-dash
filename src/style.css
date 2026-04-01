@@ -122,6 +122,7 @@ body {
 #death-screen {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
+  transition: opacity 0.4s ease-in;
 }
 
 #start-screen {
@@ -194,7 +195,7 @@ body {
 
 /* --- Buttons --- */
 
-#share-btn, #skins-btn, #rewarded-ad-btn, #skin-close-btn {
+#share-btn, #skins-btn, #death-skins-btn, #rewarded-ad-btn, #skin-close-btn {
   pointer-events: auto;
   margin-top: 12px;
   padding: 12px 32px;
@@ -209,13 +210,22 @@ body {
   min-height: 48px;
 }
 
-#share-btn:active, #skins-btn:active, #rewarded-ad-btn:active, #skin-close-btn:active {
+#share-btn:active, #skins-btn:active, #death-skins-btn:active, #rewarded-ad-btn:active, #skin-close-btn:active {
   transform: scale(0.95);
 }
 
 #skins-btn {
   display: block;
   margin: 16px auto 0;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 16px;
+  padding: 10px 28px;
+}
+
+#death-skins-btn {
+  display: block;
+  margin: 8px auto 0;
   background: rgba(255,255,255,0.15);
   color: #fff;
   font-size: 16px;
@@ -348,14 +358,23 @@ body {
   pointer-events: none;
 }
 
+.unlock-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .unlock-flash {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: #fff;
-  animation: flash 0.3s ease-out forwards;
+  background: #FFD700;
+  animation: flash 0.4s ease-out forwards;
 }
 
 @keyframes flash {
@@ -390,12 +409,24 @@ body {
   margin-bottom: 12px;
 }
 
+.unlock-emoji {
+  font-size: 48px;
+  margin-bottom: 8px;
+  animation: celebrationPop 0.5s ease-out;
+}
+
 .unlock-swatch {
   width: 64px;
   height: 64px;
   border-radius: 12px;
   margin: 0 auto;
   border: 3px solid #FFD700;
+}
+
+.unlock-hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 16px;
 }
 
 .hidden {

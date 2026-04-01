@@ -3,12 +3,24 @@
 ## Design Debt
 
 ### Color-blind accessibility for skin palette
-- **What:** Lava Penguin (#e53935) and Forest Penguin (#2E7D32) are a red/green pair, indistinguishable for ~8% of males with color vision deficiency. Adjust one or both colors, or add a shape/pattern differentiator (e.g., stripe on the belly).
-- **Why:** The plan explicitly calls out color-blind safety for skins, but the current color table violates it.
-- **Pros:** Inclusive design for the target audience (kids, some of whom are color-blind).
-- **Cons:** Minor effort to adjust 1-2 hex values.
-- **Context:** From /plan-design-review Pass 6. The skin unlock table in the design doc has the exact colors. Change Lava to a warmer orange (#FF6D00) or Forest to a teal (#00897B) to create brightness contrast.
-- **Depends on:** Skin implementation (Phase 1, item 1 of design doc).
+- Fixed by implementation on main, 2026-04-01. Lava=#FF6D00, Forest=#00897B.
+
+## QA Findings (from /qa on main, 2026-04-01)
+
+### Skin card buttons need aria-labels (medium, accessibility)
+- **What:** Locked skin card buttons read as "Golden Penguin 🐟 10" — emoji may be read inconsistently by screen readers. Add explicit `aria-label` attributes like "Golden Penguin, costs 10 fish, locked".
+- **Why:** Only the Pause button has an aria-label. Other interactive elements rely on text content which includes emojis.
+- **Depends on:** None.
+
+### THREE.Clock deprecation warning (low, console)
+- **What:** `new THREE.Clock()` in Game.ts triggers "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead." on every page load.
+- **Why:** Three.js deprecated Clock in favor of Timer. Will be removed in a future version.
+- **Depends on:** None. Simple swap of `new THREE.Clock()` → `new THREE.Timer()` and updating delta calls.
+
+### Skin grid Close button tight on 320px (low, visual)
+- **What:** On 320x568 viewport, the Close button on the skins screen sits at the very bottom edge with minimal padding.
+- **Why:** 3-column grid + 8 skin cards + heading + close button fills the full height.
+- **Depends on:** None. Could add `overflow-y: auto` or reduce card padding at small sizes.
 
 ## Engineering Debt
 
